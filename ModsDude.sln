@@ -5,7 +5,9 @@ VisualStudioVersion = 17.0.32002.185
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ModsDude.Core", "ModsDude.Core\ModsDude.Core.csproj", "{9849AF3C-8E25-4EF4-B790-0AD2F2A6E58A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModsDude.Cli", "ModsDude.Cli\ModsDude.Cli.csproj", "{7B4D75E1-CFEF-45AD-BEE4-632BE434D8A7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ModsDude.Cli", "ModsDude.Cli\ModsDude.Cli.csproj", "{7B4D75E1-CFEF-45AD-BEE4-632BE434D8A7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModsDude.WPF", "ModsDude.WPF\ModsDude.WPF.csproj", "{1F4BF9C1-9575-4F96-A7E4-6DA9141D118B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{7B4D75E1-CFEF-45AD-BEE4-632BE434D8A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B4D75E1-CFEF-45AD-BEE4-632BE434D8A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7B4D75E1-CFEF-45AD-BEE4-632BE434D8A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1F4BF9C1-9575-4F96-A7E4-6DA9141D118B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1F4BF9C1-9575-4F96-A7E4-6DA9141D118B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1F4BF9C1-9575-4F96-A7E4-6DA9141D118B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1F4BF9C1-9575-4F96-A7E4-6DA9141D118B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

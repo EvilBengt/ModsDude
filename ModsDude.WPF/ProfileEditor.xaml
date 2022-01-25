@@ -1,0 +1,98 @@
+﻿<Window x:Class="ModsDude.WPF.ProfileEditor"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ModsDude.WPF"
+        xmlns:vm="clr-namespace:ModsDude.WPF.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:ProfileEditorViewModel, IsDesignTimeCreatable=True}"
+        Title="ProfileEditor" Height="450" Width="800"
+        FontSize="16">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Label Grid.ColumnSpan="3" Grid.Row="0"
+               HorizontalContentAlignment="Center"
+               FontSize="20">
+            Profile name
+        </Label>
+
+        <Grid Grid.Column="1" Grid.Row="1"
+              Margin="10 0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+
+            <StackPanel Grid.Row="1"
+                            Orientation="Vertical"
+                            MinWidth="60">
+                <Button Command="{Binding EnableModCommand}"
+                            FontSize="20">
+                    &gt;
+                </Button>
+                <Button Command="{Binding DisableModCommand}"
+                            FontSize="20">
+                    &lt;
+                </Button>
+                <Button Command="{Binding SaveChangesCommand}"
+                        Margin="0 40 0 0">
+                    Save changes
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Column="0" Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0"
+                        Orientation="Vertical">
+                <Label HorizontalContentAlignment="Center">
+                    Available
+                </Label>
+                <GroupBox Header="Search">
+                    <TextBox Text="{Binding AvailableSearcher.SearchString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                </GroupBox>
+            </StackPanel>
+            <ListBox Grid.Row="1"
+                     ItemsSource="{Binding AvailableSearcher.Output}"
+                     SelectedItem="{Binding SelectedAvailableMod}"
+                     SelectionMode="Extended"/>
+        </Grid>
+
+        <Grid Grid.Column="2" Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0"
+                        Orientation="Vertical">
+                <Label HorizontalContentAlignment="Center">
+                    Enabled
+                </Label>
+                <GroupBox Header="Search">
+                    <TextBox Text="{Binding EnabledSearcher.SearchString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                </GroupBox>
+            </StackPanel>
+            <ListBox Grid.Row="1"
+                     ItemsSource="{Binding EnabledSearcher.Output}"
+                     SelectedItem="{Binding SelectedEnabledMod}"
+                     SelectionMode="Extended"/>
+        </Grid>
+    </Grid>
+</Window>
