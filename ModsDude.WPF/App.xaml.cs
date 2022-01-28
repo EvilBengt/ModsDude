@@ -19,12 +19,18 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        //string modsFolderPath = @"D:\Misc\Farming Simulator 2022 Fake Mods Folder";
+        string modsFolderPath = @"C:\Users\Anton\Documents\My Games\FarmingSimulator2022\mods";
+        string cacheFolderPath = @"D:\Misc\Farming Simulator 2022 Mod Cache";
+
         Remote remote = new();
         SavegameReader savegameReader = new();
-        ModBrowser modBrowser = new();
+        ModBrowser modBrowser = new(modsFolderPath, cacheFolderPath);
         ProfileEditorInitializer profileEditorInitializer = new(modBrowser, remote);
+        ProfileActivator profileActivator = new(modBrowser, remote);
+        UpdatePusher updatePusher = new(remote, modBrowser);
 
-        MainWindowViewModel mainWindowViewModel = new(remote, savegameReader, profileEditorInitializer);
+        MainWindowViewModel mainWindowViewModel = new(remote, savegameReader, profileEditorInitializer, profileActivator, updatePusher);
         
         Window window = new MainWindow
         {

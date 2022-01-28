@@ -9,12 +9,18 @@ namespace ModsDude.WPF.Commands;
 
 internal class AsyncRelayCommand : ICommand
 {
-    private readonly Func<Task> _action;
+    private readonly Func<object?, Task> _action;
     private readonly Action<Exception> _exceptionHandler;
     private bool _isExecuting;
 
 
     public AsyncRelayCommand(Func<Task> action, Action<Exception> exceptionHandler)
+    {
+        _action = (object? arg) => action();
+        _exceptionHandler = exceptionHandler;
+    }
+
+    public AsyncRelayCommand(Func<object?, Task> action, Action<Exception> exceptionHandler)
     {
         _action = action;
         _exceptionHandler = exceptionHandler;
@@ -43,7 +49,7 @@ internal class AsyncRelayCommand : ICommand
         {
             _isExecuting = true;
             OnCanExecuteChanged();
-            await ExecuteAsync();
+            await ExecuteAsync(parameter);
         }
         catch (Exception ex)
         {
@@ -56,8 +62,8 @@ internal class AsyncRelayCommand : ICommand
         }
     }
 
-    public Task ExecuteAsync()
+    public Task ExecuteAsync(object? parameter = null)
     {
-        return _action();
+        return _action(parameter);
     }
 }

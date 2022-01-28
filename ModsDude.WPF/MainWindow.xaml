@@ -15,42 +15,86 @@
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <StackPanel Grid.Column="0"
+        <Label Grid.Column="0" Grid.Row="0"
+               HorizontalContentAlignment="Center"
+               FontSize="20">
+            Misc
+        </Label>
+        <Label Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="0"
+               HorizontalContentAlignment="Center"
+               FontSize="20">
+            Mod Profiles
+        </Label>
+        <Label Grid.Column="3" Grid.Row="0"
+               HorizontalContentAlignment="Center"
+               FontSize="20">
+            Savegames
+        </Label>
+
+        <StackPanel Grid.Column="0" Grid.Row="1"
                     Orientation="Vertical">
-            <GroupBox Header="New profile">
+            <GroupBox Header="Remote">
                 <StackPanel Orientation="Vertical">
-                    <TextBox Text="{Binding NewProfileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                    <Button Command="{Binding CreateProfileCommand}">
-                        Create
+                    <Button Command="{Binding PushUpdatesCommand}">
+                        Push updates
+                    </Button>
+                    <ProgressBar DataContext="{Binding PushUpdatesProgressBarViewModel}"
+                                 Maximum="{Binding Maximum}" Value="{Binding Value}"
+                                 Height="10" Margin="0 0 0 10"/>
+                    <Button Command="{Binding RemoveUnusedFromRemoteCommand}">
+                        Remove unused files
                     </Button>
                 </StackPanel>
             </GroupBox>
-            <Button>
-                Update remote
-            </Button>
-            <Button>
-                Import mods
-            </Button>
+            <GroupBox Header="Local">
+                <StackPanel Orientation="Vertical">
+                    <Button>
+                        Import mods
+                    </Button>
+                    <Button>
+                        Remove unused files
+                    </Button>
+                </StackPanel>
+            </GroupBox>
         </StackPanel>
 
-        <Grid Grid.Column="1">
+        <Grid Grid.Column="1" Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            
-            <Button Grid.Row="0"
-                    Command="{Binding RefreshProfilesCommand}">
-                Refresh
-            </Button>
+
+            <StackPanel Grid.Row="0"
+                        Orientation="Vertical">
+                <GroupBox Header="New profile">
+                    <StackPanel Orientation="Vertical">
+                        <TextBox Text="{Binding CreateProfileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding CreateProfileCommand}"/>
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <Button Command="{Binding CreateProfileCommand}">
+                            Create
+                        </Button>
+                    </StackPanel>
+                </GroupBox>
+                <Button Command="{Binding RefreshProfilesCommand}">
+                    Refresh
+                </Button>
+            </StackPanel>
             <ListBox Grid.Row="1"
                      ItemsSource="{Binding Profiles}"
                      SelectedValue="{Binding SelectedProfile}"/>
         </Grid>
 
-        <GroupBox Grid.Column="2"
+        <GroupBox Grid.Column="2" Grid.Row="1"
                   IsEnabled="{Binding HasSelectedProfile}">
             <GroupBox.Style>
                 <Style TargetType="GroupBox">
@@ -64,15 +108,35 @@
             </GroupBox.Style>
             
             <StackPanel Orientation="Vertical">
-                <Button>
-                    Activate
-                </Button>
+                <GroupBox>
+                    <StackPanel Orientation="Vertical">
+                        <Button Command="{Binding ActivateProfileCommand}">
+                            Apply
+                        </Button>
+                        <Button Command="{Binding ClearAndActivateProfileCommand}">
+                            Clear then apply
+                        </Button>
+                        <ProgressBar Height="10"/>
+                    </StackPanel>
+                </GroupBox>
                 <GroupBox Header="Update from savegame">
                     <StackPanel Orientation="Vertical">
                         <ComboBox ItemsSource="{Binding Savegames}"
                               SelectedValue="{Binding SelectedSavegame}"/>
                         <Button Command="{Binding UpdateProfileFromSavegameCommand}">
                             Update
+                        </Button>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox Header="Rename">
+                    <StackPanel Orientation="Vertical">
+                        <TextBox Text="{Binding RenameProfileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding RenameProfileCommand}"/>
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <Button Command="{Binding RenameProfileCommand}">
+                            Rename
                         </Button>
                     </StackPanel>
                 </GroupBox>
@@ -84,5 +148,36 @@
                 </Button>
             </StackPanel>
         </GroupBox>
+
+        <Grid Grid.Column="3" Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <GroupBox Grid.Row="0"
+                      Header="Remote">
+                <ListBox/>
+            </GroupBox>
+
+            <StackPanel Grid.Row="1"
+                        Orientation="Vertical">
+                <Button>
+                    Upload
+                </Button>
+                <Button>
+                    Download
+                </Button>
+                <Button Margin="0 20 0 0">
+                    Clear
+                </Button>
+            </StackPanel>
+
+            <GroupBox Grid.Row="2"
+                      Header="Local">
+                <ListBox/>
+            </GroupBox>
+        </Grid>
     </Grid>
 </Window>

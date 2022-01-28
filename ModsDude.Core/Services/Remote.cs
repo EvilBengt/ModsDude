@@ -16,41 +16,6 @@ public class Remote
     const string _authString = "ZHVkZTphc2Rhc2Rhc2Rhc2Q=";
 
 
-    public async Task CreateProfile(string name)
-    {
-        HttpRequestMessage request = CreatePost("/profiles/create.php");
-
-        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>()
-        {
-            { "filename", name }
-        });
-
-        using HttpClient client = new();
-        HttpResponseMessage response = await client.SendAsync(request);
-
-        if (response.StatusCode == HttpStatusCode.Conflict)
-        {
-            throw new Exception("Name already taken.");
-        }
-
-        response.EnsureSuccessStatusCode();
-    }
-
-    public async Task RemoveProfile(string name)
-    {
-        HttpRequestMessage request = CreatePost("/profiles/remove.php");
-
-        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>()
-        {
-            { "filename", name }
-        });
-
-        using HttpClient client = new();
-        HttpResponseMessage response = await client.SendAsync(request);
-
-        response.EnsureSuccessStatusCode();
-    }
-
     public async Task<IEnumerable<string>> FetchProfiles()
     {
         HttpRequestMessage request = CreateGet("/profiles/index.php");
@@ -87,11 +52,139 @@ public class Remote
         return responseContent.Mods;
     }
 
+    public async Task CreateProfile(string name)
+    {
+        HttpRequestMessage request = CreatePost("/profiles/create.php");
+
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>()
+        {
+            { "filename", name }
+        });
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new Exception("Name already taken.");
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task RemoveProfile(string name)
+    {
+        HttpRequestMessage request = CreatePost("/profiles/remove.php");
+
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>()
+        {
+            { "filename", name }
+        });
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task UpdateProfile(string name, IEnumerable<string> mods)
     {
         HttpRequestMessage request = CreatePost("/profiles/update.php?filename=" + name);
 
         request.Content = JsonContent.Create(new ProfileUpdateRequest(mods));
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task RenameProfile(string oldName, string newName)
+    {
+        HttpRequestMessage request = CreatePost("/profiles/rename.php");
+
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>()
+        {
+            { "oldName", oldName },
+            { "newName", newName }
+        });
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new Exception("Name already taken.");
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<NeededMods> FetchNeededModsList()
+    {
+        HttpRequestMessage request = CreateGet("/mods/needed.php");
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        NeededMods? responseContent = await response.Content.ReadFromJsonAsync<NeededMods>();
+
+        if (responseContent?.Needed is null || responseContent.Unneeded is null)
+        {
+            throw new Exception("Invalid response from server when fetching needed mods.");
+        }
+
+        return responseContent;
+    }
+
+    public async Task<Dictionary<string, ModInfo>> FetchModIndex()
+    {
+        HttpRequestMessage request = CreateGet("/mods/index.json");
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        Dictionary<string, ModInfo>? responseContent = await response.Content.ReadFromJsonAsync<Dictionary<string, ModInfo>>();
+
+        if (responseContent is null)
+        {
+            throw new Exception("Invalid response from server when fetching mod index.");
+        }
+
+        return responseContent;
+    }
+
+    public async Task UploadMod(FileStream fileStream, string? hash)
+    {
+        HttpRequestMessage request = CreatePost("/mods/upload.php");
+
+        MultipartFormDataContent content = new();
+
+        content.Add(new StreamContent(fileStream), "file", Path.GetFileName(fileStream.Name));
+
+        if (hash is not null)
+        {
+            content.Add(new StringContent(hash), "hash");
+        
+        }
+        content.Add(new StringContent(fileStream.Length.ToString()), "size");
+        request.Content = content;
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task RemoveMod(string name)
+    {
+        HttpRequestMessage request = CreatePost("/mods/remove.php");
+
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>()
+        {
+            { "filename", name }
+        });
 
         using HttpClient client = new();
         HttpResponseMessage response = await client.SendAsync(request);

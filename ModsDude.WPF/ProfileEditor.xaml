@@ -7,7 +7,7 @@
         xmlns:vm="clr-namespace:ModsDude.WPF.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:ProfileEditorViewModel, IsDesignTimeCreatable=True}"
-        Title="ProfileEditor" Height="450" Width="800"
+        Title="ModsDude v1.0 - Edit Profile" Height="450" Width="800"
         FontSize="16">
     <Grid>
         <Grid.ColumnDefinitions>
@@ -22,9 +22,8 @@
 
         <Label Grid.ColumnSpan="3" Grid.Row="0"
                HorizontalContentAlignment="Center"
-               FontSize="20">
-            Profile name
-        </Label>
+               FontSize="20"
+               Content="{Binding ProfileName}"/>
 
         <Grid Grid.Column="1" Grid.Row="1"
               Margin="10 0">
@@ -64,6 +63,8 @@
                 <Label HorizontalContentAlignment="Center">
                     Available
                 </Label>
+                <Label HorizontalContentAlignment="Center"
+                       Content="{Binding AvailableCount}"/>
                 <GroupBox Header="Search">
                     <TextBox Text="{Binding AvailableSearcher.SearchString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                 </GroupBox>
@@ -85,6 +86,8 @@
                 <Label HorizontalContentAlignment="Center">
                     Enabled
                 </Label>
+                <Label HorizontalContentAlignment="Center"
+                       Content="{Binding EnabledCount}"/>
                 <GroupBox Header="Search">
                     <TextBox Text="{Binding EnabledSearcher.SearchString, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                 </GroupBox>

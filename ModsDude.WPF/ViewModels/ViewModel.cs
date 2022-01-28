@@ -20,7 +20,7 @@ internal abstract class ViewModel : INotifyPropertyChanged
     }
 
 
-    protected void OnCommandException(Exception ex)
+    protected void OnAsyncException(Exception ex)
     {
         MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
     }

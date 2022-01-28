@@ -1,8 +1,10 @@
-﻿using ModsDude.Core.Services;
+﻿using ModsDude.Core.Models.Remote;
+using ModsDude.Core.Services;
 using ModsDude.WPF.Commands;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,6 +16,8 @@ internal class ProfileEditorViewModel : ViewModel
     private readonly ModBrowser _modBrowser;
     private readonly Remote _remote;
     private readonly string _profileName;
+    private readonly ObservableCollection<string> _availableMods;
+    private readonly ObservableCollection<string> _enabledMods;
 
 
     /// <summary>
@@ -25,7 +29,7 @@ internal class ProfileEditorViewModel : ViewModel
         _remote = null!;
         _profileName = "Profile name";
 
-        AvailableMods = new ObservableCollection<string>()
+        _availableMods = new ObservableCollection<string>()
         {
             "mod1",
             "mod2",
@@ -33,7 +37,7 @@ internal class ProfileEditorViewModel : ViewModel
             "mod4",
             "mod5"
         };
-        EnabledMods = new ObservableCollection<string>()
+        _enabledMods = new ObservableCollection<string>()
         {
             "mod6",
             "mod7",
@@ -41,10 +45,9 @@ internal class ProfileEditorViewModel : ViewModel
             "mod9",
             "mod10"
         };
-        AvailableSearcher = new(AvailableMods);
-        EnabledSearcher = new(EnabledMods);
+        AvailableSearcher = new(_availableMods);
+        EnabledSearcher = new(_enabledMods);
 
-        ReloadEnabledModsCommand = null!;
         EnableModCommand = null!;
         DisableModCommand = null!;
         SaveChangesCommand = null!;
@@ -55,15 +58,14 @@ internal class ProfileEditorViewModel : ViewModel
     /// </summary>
     public ProfileEditorViewModel(ModBrowser modBrowser, Remote remote, string profileName)
     {
-        AvailableMods = new ObservableCollection<string>();
-        EnabledMods = new ObservableCollection<string>();
+        _availableMods = new ObservableCollection<string>();
+        _enabledMods = new ObservableCollection<string>();
         _modBrowser = modBrowser;
         _remote = remote;
         _profileName = profileName;
-        AvailableSearcher = new(AvailableMods);
-        EnabledSearcher = new(EnabledMods);
+        AvailableSearcher = new(_availableMods);
+        EnabledSearcher = new(_enabledMods);
 
-        ReloadEnabledModsCommand = new(ReloadEnabledMods, OnCommandException);
         EnableModCommand = new(EnableMod)
         {
             CanExecuteDelegate = () => string.IsNullOrWhiteSpace(SelectedAvailableMod) == false
@@ -72,21 +74,21 @@ internal class ProfileEditorViewModel : ViewModel
         {
             CanExecuteDelegate = () => string.IsNullOrWhiteSpace(SelectedEnabledMod) == false
         };
-        SaveChangesCommand = new(SaveChanges, OnCommandException);
+        SaveChangesCommand = new(SaveChanges, OnAsyncException);
 
-        ReloadEnabledModsCommand.Execute(null);
+        _availableMods.CollectionChanged += (object? sender, NotifyCollectionChangedEventArgs e) => OnPropertyChanged(nameof(AvailableCount));
+        _enabledMods.CollectionChanged += (object? sender, NotifyCollectionChangedEventArgs e) => OnPropertyChanged(nameof(EnabledCount));
+
+        LoadMods();
     }
 
 
-    public AsyncRelayCommand ReloadEnabledModsCommand { get; }
     public RelayCommand EnableModCommand { get; }
     public RelayCommand DisableModCommand { get; }
     public AsyncRelayCommand SaveChangesCommand { get; }
 
     public string ProfileName => _profileName;
 
-    public ObservableCollection<string> AvailableMods { get; set; }
-    public ObservableCollection<string> EnabledMods { get; set; }
     public FuzzySearcher AvailableSearcher { get; }
     public FuzzySearcher EnabledSearcher { get; }
 
@@ -120,14 +122,58 @@ internal class ProfileEditorViewModel : ViewModel
         }
     }
 
+    public int EnabledCount => _enabledMods.Count;
+    public int AvailableCount => _availableMods.Count;
 
-    private async Task ReloadEnabledMods()
+
+    private async void LoadMods()
     {
-        EnabledMods.Clear();
-
-        foreach (string mod in await _remote.FetchProfile(_profileName))
+        try
         {
-            EnabledMods.Add(mod);
+            await LoadEnabledMods();
+            await LoadAvailableMods();
+        }
+        catch (Exception ex)
+        {
+            OnAsyncException(ex);
+            return;
+        }
+    }
+
+    private async Task LoadEnabledMods()
+    {
+        foreach (string mod in await _remote.FetchProfile(ProfileName))
+        {
+            _enabledMods.Add(mod);
+        }
+    }
+
+    private async Task LoadAvailableMods()
+    {
+        IEnumerable<string> localAvailableMods;
+        IEnumerable<string> remoteAvailableMods;
+
+        try
+        {
+            localAvailableMods = _modBrowser.GetActive().Union(_modBrowser.GetCached());
+
+            NeededMods neededMods = await _remote.FetchNeededModsList();
+            remoteAvailableMods = neededMods.Needed!.Select(mod => mod.Name!).Union(neededMods.Unneeded!);
+        }
+        catch (NullReferenceException ex)
+        {
+            OnAsyncException(new Exception("Could not load available mods. Probably invalid response from server.", ex));
+            return;
+        }
+        catch (Exception ex)
+        {
+            OnAsyncException(ex);
+            return;
+        }
+
+        foreach (string mod in localAvailableMods.Union(remoteAvailableMods).Except(_enabledMods))
+        {
+            _availableMods.Add(mod);
         }
     }
 
@@ -135,8 +181,8 @@ internal class ProfileEditorViewModel : ViewModel
     {
         while (SelectedAvailableMod is not null)
         {
-            EnabledMods.Insert(0, SelectedAvailableMod);
-            AvailableMods.Remove(SelectedAvailableMod);
+            _enabledMods.Insert(0, SelectedAvailableMod);
+            _availableMods.Remove(SelectedAvailableMod);
         }
     }
 
@@ -144,13 +190,13 @@ internal class ProfileEditorViewModel : ViewModel
     {
         while (SelectedEnabledMod is not null)
         {
-            AvailableMods.Insert(0, SelectedEnabledMod);
-            EnabledMods.Remove(SelectedEnabledMod);
+            _availableMods.Insert(0, SelectedEnabledMod);
+            _enabledMods.Remove(SelectedEnabledMod);
         }
     }
 
     private Task SaveChanges()
     {
-        return _remote.UpdateProfile(ProfileName, EnabledMods);
+        return _remote.UpdateProfile(ProfileName, _enabledMods);
     }
 }

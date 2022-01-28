@@ -1,4 +1,6 @@
-﻿using ModsDude.Core.Services;
+﻿using ModsDude.Core.Models.Remote;
+using ModsDude.Core.Models.UpdatePusher;
+using ModsDude.Core.Services;
 using ModsDude.WPF.Commands;
 using ModsDude.WPF.Services;
 using System;
@@ -9,6 +11,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using ModsDude.WPF.Utils;
+using Microsoft.Win32;
 
 namespace ModsDude.WPF.ViewModels;
 
@@ -17,6 +21,8 @@ internal class MainWindowViewModel : ViewModel
     private readonly Remote _remote;
     private readonly SavegameReader _savegameReader;
     private readonly ProfileEditorInitializer _profileEditorInitializer;
+    private readonly ProfileActivator _profileActivator;
+    private readonly UpdatePusher _updatePusher;
 
 
     /// <summary>
@@ -27,12 +33,19 @@ internal class MainWindowViewModel : ViewModel
         _remote = null!;
         _savegameReader = null!;
         _profileEditorInitializer = null!;
+        _profileActivator = null!;
+        _updatePusher = null!;
 
         RefreshProfilesCommand = null!;
         CreateProfileCommand = null!;
         RemoveProfileCommand = null!;
         UpdateProfileFromSavegameCommand = null!;
         OpenProfileEditorCommand = null!;
+        RenameProfileCommand = null!;
+        ActivateProfileCommand = null!;
+        ClearAndActivateProfileCommand = null!;
+        PushUpdatesCommand = null!;
+        RemoveUnusedFromRemoteCommand = null!;
 
         Profiles = new()
         {
@@ -47,25 +60,35 @@ internal class MainWindowViewModel : ViewModel
     /// <summary>
     /// Main constructor
     /// </summary>
-    public MainWindowViewModel(Remote remote, SavegameReader savegameReader, ProfileEditorInitializer profileEditorInitializer)
+    public MainWindowViewModel(Remote remote, SavegameReader savegameReader, ProfileEditorInitializer profileEditorInitializer, ProfileActivator profileActivator, UpdatePusher updatePusher)
     {
         _remote = remote;
         _savegameReader = savegameReader;
         _profileEditorInitializer = profileEditorInitializer;
-        RefreshProfilesCommand = new AsyncRelayCommand(RefreshProfiles, OnCommandException);
-        CreateProfileCommand = new AsyncRelayCommand(CreateProfile, OnCommandException)
+        _profileActivator = profileActivator;
+        _updatePusher = updatePusher;
+        RefreshProfilesCommand = new AsyncRelayCommand(RefreshProfiles, OnAsyncException);
+        CreateProfileCommand = new AsyncRelayCommand(CreateProfile, OnAsyncException)
         {
-            CanExecuteDelegate = () => string.IsNullOrWhiteSpace(NewProfileName) == false
+            CanExecuteDelegate = () => string.IsNullOrWhiteSpace(CreateProfileName) == false
         };
-        RemoveProfileCommand = new AsyncRelayCommand(RemoveProfile, OnCommandException);
-        UpdateProfileFromSavegameCommand = new AsyncRelayCommand(UpdateProfileFromSavegame, OnCommandException)
+        RemoveProfileCommand = new AsyncRelayCommand(RemoveProfile, OnAsyncException);
+        UpdateProfileFromSavegameCommand = new AsyncRelayCommand(UpdateProfileFromSavegame, OnAsyncException)
         {
             CanExecuteDelegate = () => string.IsNullOrWhiteSpace(SelectedSavegame) == false
         };
         OpenProfileEditorCommand = new(OpenProfileEditor);
+        RenameProfileCommand = new(RenameProfile, OnAsyncException)
+        {
+            CanExecuteDelegate = () => string.IsNullOrWhiteSpace(RenameProfileName) == false
+        };
+        ActivateProfileCommand = new(() => ActivateProfile(false), OnAsyncException);
+        ClearAndActivateProfileCommand = new(() => ActivateProfile(true), OnAsyncException);
+        PushUpdatesCommand = new(PushUpdates, OnAsyncException);
+        RemoveUnusedFromRemoteCommand = new(RemoveUnusedFromRemote, OnAsyncException);
+
 
         RefreshProfilesCommand.Execute(null);
-
         Savegames = InitializeSavegameList();
     }
 
@@ -75,6 +98,11 @@ internal class MainWindowViewModel : ViewModel
     public AsyncRelayCommand RemoveProfileCommand { get; }
     public AsyncRelayCommand UpdateProfileFromSavegameCommand { get; }
     public RelayCommand OpenProfileEditorCommand { get; }
+    public AsyncRelayCommand RenameProfileCommand { get; }
+    public AsyncRelayCommand ActivateProfileCommand { get; }
+    public AsyncRelayCommand ClearAndActivateProfileCommand { get; }
+    public AsyncRelayCommand PushUpdatesCommand { get; }
+    public AsyncRelayCommand RemoveUnusedFromRemoteCommand { get; }
 
 
     private ObservableCollection<string>? _profiles;
@@ -107,16 +135,16 @@ internal class MainWindowViewModel : ViewModel
     }
     public bool HasSelectedProfile => SelectedProfile is not null;
 
-    private string _newProfileName = "";
-    public string NewProfileName
+    private string _createProfileName = "";
+    public string CreateProfileName
     {
         get
         {
-            return _newProfileName;
+            return _createProfileName;
         }
         set
         {
-            _newProfileName = value;
+            _createProfileName = value;
             OnPropertyChanged();
             CreateProfileCommand.OnCanExecuteChanged();
         }
@@ -138,6 +166,24 @@ internal class MainWindowViewModel : ViewModel
         }
     }
 
+    private string _renameProfileName = "";
+    public string RenameProfileName
+    {
+        get
+        {
+            return _renameProfileName;
+        }
+        set
+        {
+            _renameProfileName = value;
+            OnPropertyChanged();
+            RenameProfileCommand.OnCanExecuteChanged();
+        }
+    }
+
+    public ProgressBarViewModel ApplyProfileProgressBarViewModel { get; set; } = new();
+    public ProgressBarViewModel PushUpdatesProgressBarViewModel { get; set; } = new();
+
 
     private async Task RefreshProfiles()
     {
@@ -146,8 +192,8 @@ internal class MainWindowViewModel : ViewModel
 
     private async Task CreateProfile()
     {
-        await _remote.CreateProfile(NewProfileName);
-        NewProfileName = "";
+        await _remote.CreateProfile(CreateProfileName);
+        CreateProfileName = "";
         RefreshProfilesCommand.Execute(null);
     }
 
@@ -180,6 +226,141 @@ internal class MainWindowViewModel : ViewModel
         }
 
         _profileEditorInitializer.Open(SelectedProfile);
+    }
+
+    private async Task RenameProfile()
+    {
+        if (SelectedProfile is null)
+        {
+            return;
+        }
+
+        await _remote.RenameProfile(SelectedProfile, RenameProfileName);
+
+        RenameProfileName = "";
+        RefreshProfilesCommand.Execute(null);
+    }
+
+    private async Task ActivateProfile(bool clearBeforeApplying)
+    {
+        if (SelectedProfile is null)
+        {
+            return;
+        }
+
+        _profileActivator.HashingStarted += (count) =>
+        {
+            ApplyProfileProgressBarViewModel.Maximum = count;
+        };
+
+        _profileActivator.HashedFile += (size) =>
+        {
+            ApplyProfileProgressBarViewModel.Value += size;
+        };
+
+        (float downloadSize, IEnumerable<string> downloads) = await _profileActivator.ActivateFromLocal(SelectedProfile, clearBeforeApplying);
+
+        ApplyProfileProgressBarViewModel.Value = 0;
+
+        string downloadList;
+        int downloadCount = downloads.Count();
+
+        if (downloadCount > 20)
+        {
+            downloadList = string.Join("\n", downloads.Take(20)) + $"\n({downloadCount - 20} more)";
+        }
+        else
+        {
+            downloadList = string.Join("\n", downloads);
+        }
+
+        bool download = MessageBox.Show(
+            $"Do you want to download the following mods ({downloadSize} MB)?\n\n{downloadList}",
+            "Download missing mods?",
+            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No)
+                == MessageBoxResult.Yes;
+
+        if (!download)
+        {
+            return;
+        }
+
+        // Open download window and start downloading
+    }
+
+    private async Task PushUpdates()
+    {
+        PushUpdatesProgressBarViewModel.Bind(_updatePusher.FileOperation);
+
+        (Update update, IEnumerable<string> completelyMissing) = await _updatePusher.CreateUpdate();
+
+        PushUpdatesProgressBarViewModel.Reset();
+
+        if (completelyMissing.Any())
+        {
+            string list = string.Join("\n", completelyMissing.Take(20));
+            int count = completelyMissing.Count();
+            string listFooter = count > 20 ? $"\n...\n({count - 20} more)" : "";
+
+            MessageBox.Show($"The following mods are missing from the server and could not be found locally:\n\n{list}{listFooter}", "Missing mods");
+        }
+
+        if (update.Missing.Count() + update.Updates.Count() == 0)
+        {
+            if (completelyMissing.Any())
+            {
+                MessageBox.Show("No files to upload.", "No files", MessageBoxButton.OK);
+            }
+            else
+            {
+                MessageBox.Show("Remote is up to date.", "Up to date", MessageBoxButton.OK);
+            }
+
+            return;
+        }
+
+        bool upload = MessageBox.Show(
+            $"Do you want to upload\n{update.Missing.Count()} missing and\n{update.Updates.Count()} outdated files?\n\n Total: {update.TotalCount} mods, {update.TotalSize.ToBytesCount()}",
+            "Upload",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+        if (upload == false)
+        {
+            return;
+        }
+
+        PushUpdatesProgressBarViewModel.Bind(_updatePusher.FileOperation);
+
+        await _updatePusher.PerformUpdate(update);
+
+        PushUpdatesProgressBarViewModel.Reset();
+    }
+
+    private async Task RemoveUnusedFromRemote()
+    {
+        IEnumerable<string> unused = (await _remote.FetchNeededModsList()).Unneeded;
+
+        if (unused.Any() == false)
+        {
+            MessageBox.Show("No unused mods on remote.", "No unused mods.", MessageBoxButton.OK);
+            return;
+        }
+
+        string list = string.Join("\n", unused.Take(20));
+        int count = unused.Count();
+        string listFooter = count > 20 ? $"\n...\n({count} more)" : "";
+
+        bool remove = MessageBox.Show($"Do you want to remove the following mods from remote?\n\n{list}{listFooter}", "Remove mods", MessageBoxButton.YesNoCancel, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+        if (remove == false)
+        {
+            return;
+        }
+
+        foreach (string mod in unused)
+        {
+            await _remote.RemoveMod(mod);
+        }
     }
 
 
