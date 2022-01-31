@@ -1,4 +1,5 @@
 ﻿using ModsDude.Core.Models.Remote;
+using ModsDude.Core.Models.Settings;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,9 +13,16 @@ namespace ModsDude.Core.Services;
 
 public class Remote
 {
-    const string _baseurl = "http://localhost/dev/modsdude";
-    const string _authString = "ZHVkZTphc2Rhc2Rhc2Rhc2Q=";
+    private readonly ApplicationSettings _settings;
 
+
+    public Remote(ApplicationSettings settings)
+    {
+        _settings = settings;
+    }
+
+
+    // Profiles
 
     public async Task<IEnumerable<string>> FetchProfiles()
     {
@@ -120,6 +128,8 @@ public class Remote
         response.EnsureSuccessStatusCode();
     }
 
+    // Needed mods
+
     public async Task<NeededMods> FetchNeededModsList()
     {
         HttpRequestMessage request = CreateGet("/mods/needed.php");
@@ -137,6 +147,8 @@ public class Remote
 
         return responseContent;
     }
+
+    // Mods
 
     public async Task<Dictionary<string, ModInfo>> FetchModIndex()
     {
@@ -192,6 +204,113 @@ public class Remote
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<Stream> DownloadMod(string name)
+    {
+        HttpRequestMessage request = CreateGet("/mods/mod/" + name);
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+
+        return response.Content.ReadAsStream();
+    }
+
+    // Savegames
+
+    public async Task<IEnumerable<string>> FetchSavegames()
+    {
+        HttpRequestMessage request = CreateGet("/savegames/index.php");
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        SavegamesResponse? responseContent = await response.Content.ReadFromJsonAsync<SavegamesResponse>();
+
+        if (responseContent?.Savegames is null)
+        {
+            throw new Exception("Invalid response from server when fetching savegames.");
+        }
+
+        return responseContent.Savegames;
+    }
+
+    public async Task<SavegameInfo> FetchSavegameInfo(string name)
+    {
+        HttpRequestMessage request = CreateGet("/savegames/info.php?name=" + name);
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        SavegameInfo? responseContent = await response.Content.ReadFromJsonAsync<SavegameInfo>();
+
+        if (responseContent is null)
+        {
+            throw new Exception("Invalid response from server when fetching savegame information.");
+        }
+
+        return responseContent;
+    }
+
+    public async Task CheckoutSavegame(string name)
+    {
+        HttpRequestMessage request = CreatePost("/savegames/checkout.php");
+
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>()
+        {
+            { "name", name },
+        });
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task UploadSavegame(Stream stream, string name)
+    {
+        HttpRequestMessage request = CreatePost("/savegames/upload.php");
+
+        MultipartFormDataContent content = new();
+
+        content.Add(new StreamContent(stream), "file", "upload.zip");
+        content.Add(new StringContent(name), "name");
+        request.Content = content;
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<Stream> DownloadSavegame(string name)
+    {
+        HttpRequestMessage request = CreateGet("/savegames/savegame/" + name);
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+
+        return response.Content.ReadAsStream();
+    }
+
+    public async Task RemoveSavegame(string name)
+    {
+        HttpRequestMessage request = CreatePost("/savegames/remove.php");
+
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>()
+        {
+            { "name", name }
+        });
+
+        using HttpClient client = new();
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+    }
+
 
     private HttpRequestMessage CreateGet(string endpoint)
     {
@@ -205,9 +324,16 @@ public class Remote
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string endpoint)
     {
-        HttpRequestMessage request = new(method, _baseurl + endpoint);
+        string baseUrl = _settings.GetValidRemoteUrl();
+        string username = _settings.GetValidRemoteUsername();
+        string password = _settings.GetValidRemotePassword();
 
-        request.Headers.Authorization = new("Basic", _authString);
+        string authString = Convert.ToBase64String(Encoding.UTF8.GetBytes(username + ":" + password));
+
+
+        HttpRequestMessage request = new(method, baseUrl + endpoint);
+
+        request.Headers.Authorization = new("Basic", authString);
 
         return request;
     }

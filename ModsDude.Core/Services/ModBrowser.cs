@@ -4,78 +4,91 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.VisualBasic.FileIO;
+using ModsDude.Core.Models;
+using ModsDude.Core.Models.Settings;
 
 namespace ModsDude.Core.Services;
 
 public class ModBrowser
 {
+    private readonly ApplicationSettings _settings;
     private readonly MD5 _hashAlgorithm;
-    private string _modsFolderPath;
-    private string _cacheFolderPath;
 
 
-    public ModBrowser(string modsFolderPath, string cacheFolderPath)
+    public ModBrowser(ApplicationSettings settings, string defaultImportPath)
     {
-        _modsFolderPath = modsFolderPath;
-        _cacheFolderPath = cacheFolderPath;
+        _settings = settings;
+        DefaultImportPath = defaultImportPath;
+        FileOperation = new();
 
         _hashAlgorithm = MD5.Create();
     }
 
 
-    public IEnumerable<string> GetCached()
+    public string DefaultImportPath { get; }
+    public FileOperation FileOperation { get; }
+
+
+    public IEnumerable<FileInfo> GetCached()
     {
-        return GetFiles(_cacheFolderPath);
+        return GetFiles(_settings.GetValidCacheFolder());
     }
 
-    public IEnumerable<string> GetActive()
+    public IEnumerable<FileInfo> GetActive()
     {
-        return GetFiles(_modsFolderPath);
+        return GetFiles(_settings.GetValidModsFolder());
     }
 
-    public void Cache(IEnumerable<string> filenames)
+    public Task CacheAsync(IEnumerable<FileInfo> files)
     {
-        foreach (string filename in filenames)
+        return Task.Run(() => Cache(files));
+    }
+
+    public void Cache(IEnumerable<FileInfo> files)
+    {
+        FileOperation.OnStart(files.Sum(file => file.Length));
+
+        foreach (FileInfo file in files)
         {
-            string sourcePath = Path.Combine(_modsFolderPath, filename);
-            string destinationPath = Path.Combine(_cacheFolderPath, filename);
+            string destinationPath = Path.Combine(_settings.GetValidCacheFolder(), file.Name);
+            long size = file.Length;
 
-            try
-            {
-                File.Move(sourcePath, destinationPath, true);
-            }
-            catch (FileNotFoundException)
-            {
-            }
+            file.MoveTo(destinationPath, true);
+
+            FileOperation.OnIncrement(size);
         }
     }
 
-    public IEnumerable<string> Activate(IEnumerable<string> filenames)
+    public Task ActivateAsync(IEnumerable<FileInfo> files)
     {
-        List<string> notFound = new();
-
-        foreach (string filename in filenames)
+        return Task.Run(() =>
         {
-            string sourcePath = Path.Combine(_modsFolderPath, filename);
-            string destinationPath = Path.Combine(_cacheFolderPath, filename);
+            FileOperation.OnStart(files.Sum(file => file.Length));
 
-            if (!File.Exists(sourcePath))
+            foreach (FileInfo file in files)
             {
-                notFound.Add(filename);
-                continue;
-            }
+                long size = file.Length;
 
-            try
-            {
-                File.Move(sourcePath, destinationPath, true);
+                file.MoveTo(Path.Combine(_settings.GetValidModsFolder(), file.Name), true);
+
+                FileOperation.OnIncrement(size);
             }
-            catch (FileNotFoundException)
-            {
-                notFound.Add(filename);
-            }
+        });
+    }
+
+    public void Activate(IEnumerable<FileInfo> files)
+    {
+        FileOperation.OnStart(files.Sum(file => file.Length));
+
+        foreach (FileInfo file in files)
+        {
+            long size = file.Length;
+
+            file.MoveTo(Path.Combine(_settings.GetValidModsFolder(), file.Name));
+
+            FileOperation.OnIncrement(size);
         }
-
-        return notFound;
     }
 
     public bool HasFile(string filename)
@@ -85,20 +98,20 @@ public class ModBrowser
 
     public long GetFileSizeOfActive(string filename)
     {
-        FileInfo fileInfo = new(Path.Combine(_modsFolderPath, filename));
+        FileInfo fileInfo = new(Path.Combine(_settings.GetValidModsFolder(), filename));
 
         return fileInfo.Length;
     }
 
     public FileInfo? FindFile(string filename)
     {
-        FileInfo inMods = new(Path.Combine(_modsFolderPath, filename));
+        FileInfo inMods = new(Path.Combine(_settings.GetValidModsFolder(), filename));
         if (inMods.Exists)
         {
             return inMods;
         }
 
-        FileInfo inCache = new(Path.Combine(_cacheFolderPath, filename));
+        FileInfo inCache = new(Path.Combine(_settings.GetValidCacheFolder(), filename));
         if (inCache.Exists)
         {
             return inCache;
@@ -119,10 +132,46 @@ public class ModBrowser
         });
     }
 
-
-    private IEnumerable<string> GetFiles(string path)
+    public void Import(string fullName)
     {
-        return Directory.EnumerateFiles(path).Select(mod => Path.GetFileName(mod));
+        FileInfo file = new(fullName);
+
+        file.MoveTo(Path.Combine(_settings.GetValidModsFolder(), Path.GetFileName(fullName)), true);
+    }
+
+    public Task Recycle(IEnumerable<FileInfo> files)
+    {
+        return Task.Run(() =>
+        {
+            FileOperation.OnStart(files.Sum(file => file.Length));
+
+            foreach (FileInfo file in files)
+            {
+                long size = file.Length;
+
+                FileSystem.DeleteFile(file.FullName, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+
+                FileOperation.OnIncrement(size);
+            }
+        });
+    }
+
+    public Task SaveStreamAsActiveAsync(Stream stream, string filename)
+    {
+        return Task.Run(() =>
+        {
+            FileStream fileStream = File.Open(Path.Combine(_settings.GetValidModsFolder(), filename), FileMode.Create);
+
+            stream.CopyTo(fileStream);
+
+            stream.Dispose();
+        });
+    }
+
+
+    private IEnumerable<FileInfo> GetFiles(string path)
+    {
+        return Directory.EnumerateFiles(path).Select(fullName => new FileInfo(fullName));
     }
 
 

@@ -10,11 +10,13 @@ namespace ModsDude.WPF.Commands;
 internal class RelayCommand : ICommand
 {
     private readonly Action _action;
+    private readonly Action<Exception> _exceptionHandler;
 
 
-    public RelayCommand(Action action)
+    public RelayCommand(Action action, Action<Exception> exceptionHandler)
     {
         _action = action;
+        _exceptionHandler = exceptionHandler;
     }
 
 
@@ -36,6 +38,13 @@ internal class RelayCommand : ICommand
 
     public void Execute(object? parameter)
     {
-        _action();
+        try
+        {
+            _action();
+        }
+        catch (Exception ex)
+        {
+            _exceptionHandler(ex);
+        }
     }
 }

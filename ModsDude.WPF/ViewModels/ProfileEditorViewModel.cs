@@ -66,15 +66,15 @@ internal class ProfileEditorViewModel : ViewModel
         AvailableSearcher = new(_availableMods);
         EnabledSearcher = new(_enabledMods);
 
-        EnableModCommand = new(EnableMod)
+        EnableModCommand = new(EnableMod, OnException)
         {
             CanExecuteDelegate = () => string.IsNullOrWhiteSpace(SelectedAvailableMod) == false
         };
-        DisableModCommand = new(DisableMod)
+        DisableModCommand = new(DisableMod, OnException)
         {
             CanExecuteDelegate = () => string.IsNullOrWhiteSpace(SelectedEnabledMod) == false
         };
-        SaveChangesCommand = new(SaveChanges, OnAsyncException);
+        SaveChangesCommand = new(SaveChanges, OnException);
 
         _availableMods.CollectionChanged += (object? sender, NotifyCollectionChangedEventArgs e) => OnPropertyChanged(nameof(AvailableCount));
         _enabledMods.CollectionChanged += (object? sender, NotifyCollectionChangedEventArgs e) => OnPropertyChanged(nameof(EnabledCount));
@@ -135,7 +135,7 @@ internal class ProfileEditorViewModel : ViewModel
         }
         catch (Exception ex)
         {
-            OnAsyncException(ex);
+            OnException(ex);
             return;
         }
     }
@@ -155,19 +155,19 @@ internal class ProfileEditorViewModel : ViewModel
 
         try
         {
-            localAvailableMods = _modBrowser.GetActive().Union(_modBrowser.GetCached());
+            localAvailableMods = _modBrowser.GetActive().Union(_modBrowser.GetCached()).Select(file => file.Name);
 
             NeededMods neededMods = await _remote.FetchNeededModsList();
             remoteAvailableMods = neededMods.Needed!.Select(mod => mod.Name!).Union(neededMods.Unneeded!);
         }
         catch (NullReferenceException ex)
         {
-            OnAsyncException(new Exception("Could not load available mods. Probably invalid response from server.", ex));
+            OnException(new Exception("Could not load available mods. Probably invalid response from server.", ex));
             return;
         }
         catch (Exception ex)
         {
-            OnAsyncException(ex);
+            OnException(ex);
             return;
         }
 

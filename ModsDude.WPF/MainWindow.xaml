@@ -7,7 +7,7 @@
         xmlns:vm="clr-namespace:ModsDude.WPF.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel, IsDesignTimeCreatable=True}"
-        Title="ModsDude v1.0" Height="450" Width="800"
+        Title="ModsDude" Height="577" Width="800"
         FontSize="16">
 
     <Grid>
@@ -55,11 +55,32 @@
             </GroupBox>
             <GroupBox Header="Local">
                 <StackPanel Orientation="Vertical">
-                    <Button>
+                    <Button Command="{Binding ImportModsCommand}">
                         Import mods
                     </Button>
-                    <Button>
+                    <Button Command="{Binding RemoveUnusedLocalCommand}">
                         Remove unused files
+                    </Button>
+                    <ProgressBar DataContext="{Binding RemoveUnusedLocalProgressBarViewModel}"
+                                 Maximum="{Binding Maximum}" Value="{Binding Value}"
+                                 Height="10" Margin="0 0 0 10"/>
+                </StackPanel>
+            </GroupBox>
+            <GroupBox Header="Application">
+                <Button Command="{Binding OpenSettingsCommand}">
+                    Settings
+                </Button>
+            </GroupBox>
+            <GroupBox Header="Locations">
+                <StackPanel Orientation="Vertical">
+                    <Button Command="{Binding OpenGameDataFolderCommand}">
+                        Game data folder
+                    </Button>
+                    <Button Command="{Binding OpenModsFolderCommand}">
+                        Mods folder
+                    </Button>
+                    <Button Command="{Binding OpenCacheFolderCommand}">
+                        Cache folder
                     </Button>
                 </StackPanel>
             </GroupBox>
@@ -85,13 +106,24 @@
                         </Button>
                     </StackPanel>
                 </GroupBox>
-                <Button Command="{Binding RefreshProfilesCommand}">
-                    Refresh
-                </Button>
             </StackPanel>
-            <ListBox Grid.Row="1"
-                     ItemsSource="{Binding Profiles}"
-                     SelectedValue="{Binding SelectedProfile}"/>
+            <GroupBox Grid.Row="1"
+                      Header="Profiles">
+                <Grid Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Button Grid.Row="0"
+                        Command="{Binding RefreshProfilesCommand}">
+                        Refresh
+                    </Button>
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding Profiles}"
+                             SelectedValue="{Binding SelectedProfile}"/>
+                </Grid>
+            </GroupBox>
         </Grid>
 
         <GroupBox Grid.Column="2" Grid.Row="1"
@@ -122,7 +154,7 @@
                 <GroupBox Header="Update from savegame">
                     <StackPanel Orientation="Vertical">
                         <ComboBox ItemsSource="{Binding Savegames}"
-                              SelectedValue="{Binding SelectedSavegame}"/>
+                              SelectedValue="{Binding UpdateProfileSelectedSaveGame}"/>
                         <Button Command="{Binding UpdateProfileFromSavegameCommand}">
                             Update
                         </Button>
@@ -151,32 +183,65 @@
 
         <Grid Grid.Column="3" Grid.Row="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
+                <RowDefinition Height="auto"/>
                 <RowDefinition Height="auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
             <GroupBox Grid.Row="0"
-                      Header="Remote">
-                <ListBox/>
+                      Header="Local">
+                <StackPanel Orientation="Vertical">
+                    <Button Command="{Binding ClearLocalSavegameCommand}">
+                        Clear
+                    </Button>
+                    <ComboBox ItemsSource="{Binding Savegames}"
+                              SelectedValue="{Binding SelectedLocalSavegame}"/>
+                </StackPanel>
             </GroupBox>
 
             <StackPanel Grid.Row="1"
                         Orientation="Vertical">
-                <Button>
-                    Upload
-                </Button>
-                <Button>
-                    Download
-                </Button>
-                <Button Margin="0 20 0 0">
-                    Clear
-                </Button>
+                <GroupBox Header="Selected slot">
+                    <StackPanel Orientation="Vertical">
+                        <Button Command="{Binding UploadToExistingSavegameCommand}">
+                            Upload
+                        </Button>
+                        <Button Command="{Binding DownloadSavegameCommand}">
+                            Download
+                        </Button>
+                    </StackPanel>
+                </GroupBox>
+                <GroupBox Header="New slot">
+                    <StackPanel Orientation="Vertical">
+                        <TextBox Text="{Binding NewSavegameSlotName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Button Command="{Binding UploadNewSavegameCommand}">
+                            Upload
+                        </Button>
+                    </StackPanel>
+                </GroupBox>
             </StackPanel>
 
             <GroupBox Grid.Row="2"
-                      Header="Local">
-                <ListBox/>
+                      Header="Remote">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0"
+                                Orientation="Vertical">
+                        <Button Command="{Binding RefreshSavegamesCommand}">
+                            Refresh
+                        </Button>
+                        <Button Command="{Binding RemoveRemoteSavegameCommand}">
+                            Remove
+                        </Button>
+                    </StackPanel>
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding RemoteSavegames}"
+                             SelectedValue="{Binding SelectedRemoteSavegame}"/>
+                </Grid>
             </GroupBox>
         </Grid>
     </Grid>

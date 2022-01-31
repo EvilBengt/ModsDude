@@ -13,16 +13,24 @@ using System.Windows;
 using System.Windows.Input;
 using ModsDude.WPF.Utils;
 using Microsoft.Win32;
+using System.IO;
+using ModsDude.Core.Models;
+using ModsDude.Core.Models.ProfileActivator;
+using ModsDude.Core.Models.Settings;
+using System.Diagnostics;
 
 namespace ModsDude.WPF.ViewModels;
 
 internal class MainWindowViewModel : ViewModel
 {
     private readonly Remote _remote;
-    private readonly SavegameReader _savegameReader;
+    private readonly SavegameManager _savegameManager;
     private readonly ProfileEditorInitializer _profileEditorInitializer;
+    private readonly SettingsWindowInitializer _settingsWindowInitializer;
     private readonly ProfileActivator _profileActivator;
     private readonly UpdatePusher _updatePusher;
+    private readonly ModBrowser _modBrowser;
+    private readonly ApplicationSettings _settings;
 
 
     /// <summary>
@@ -31,10 +39,13 @@ internal class MainWindowViewModel : ViewModel
     public MainWindowViewModel()
     {
         _remote = null!;
-        _savegameReader = null!;
+        _savegameManager = null!;
         _profileEditorInitializer = null!;
+        _settingsWindowInitializer = null!;
         _profileActivator = null!;
         _updatePusher = null!;
+        _modBrowser = null!;
+        _settings = null!;
 
         RefreshProfilesCommand = null!;
         CreateProfileCommand = null!;
@@ -46,6 +57,18 @@ internal class MainWindowViewModel : ViewModel
         ClearAndActivateProfileCommand = null!;
         PushUpdatesCommand = null!;
         RemoveUnusedFromRemoteCommand = null!;
+        ImportModsCommand = null!;
+        RemoveUnusedLocalCommand = null!;
+        ClearLocalSavegameCommand = null!;
+        OpenSettingsCommand = null!;
+        RefreshSavegamesCommand = null!;
+        UploadNewSavegameCommand = null!;
+        RemoveRemoteSavegameCommand = null!;
+        UploadToExistingSavegameCommand = null!;
+        DownloadSavegameCommand = null!;
+        OpenGameDataFolderCommand = null!;
+        OpenModsFolderCommand = null!;
+        OpenCacheFolderCommand = null!;
 
         Profiles = new()
         {
@@ -53,6 +76,7 @@ internal class MainWindowViewModel : ViewModel
             "profile2.json",
             "profile3.json"
         };
+        SelectedProfile = Profiles[0];
 
         Savegames = InitializeSavegameList();
     }
@@ -60,35 +84,73 @@ internal class MainWindowViewModel : ViewModel
     /// <summary>
     /// Main constructor
     /// </summary>
-    public MainWindowViewModel(Remote remote, SavegameReader savegameReader, ProfileEditorInitializer profileEditorInitializer, ProfileActivator profileActivator, UpdatePusher updatePusher)
+    public MainWindowViewModel(Remote remote,
+                               SavegameManager savegameManager,
+                               ProfileEditorInitializer profileEditorInitializer,
+                               SettingsWindowInitializer settingsWindowInitializer,
+                               ProfileActivator profileActivator,
+                               UpdatePusher updatePusher,
+                               ModBrowser modBrowser,
+                               ApplicationSettings settings)
     {
         _remote = remote;
-        _savegameReader = savegameReader;
+        _savegameManager = savegameManager;
         _profileEditorInitializer = profileEditorInitializer;
+        _settingsWindowInitializer = settingsWindowInitializer;
         _profileActivator = profileActivator;
         _updatePusher = updatePusher;
-        RefreshProfilesCommand = new AsyncRelayCommand(RefreshProfiles, OnAsyncException);
-        CreateProfileCommand = new AsyncRelayCommand(CreateProfile, OnAsyncException)
+        _modBrowser = modBrowser;
+        _settings = settings;
+        RefreshProfilesCommand = new AsyncRelayCommand(RefreshProfiles, OnException);
+        CreateProfileCommand = new AsyncRelayCommand(CreateProfile, OnException)
         {
             CanExecuteDelegate = () => string.IsNullOrWhiteSpace(CreateProfileName) == false
         };
-        RemoveProfileCommand = new AsyncRelayCommand(RemoveProfile, OnAsyncException);
-        UpdateProfileFromSavegameCommand = new AsyncRelayCommand(UpdateProfileFromSavegame, OnAsyncException)
+        RemoveProfileCommand = new AsyncRelayCommand(RemoveProfile, OnException);
+        UpdateProfileFromSavegameCommand = new AsyncRelayCommand(UpdateProfileFromSavegame, OnException)
         {
-            CanExecuteDelegate = () => string.IsNullOrWhiteSpace(SelectedSavegame) == false
+            CanExecuteDelegate = () => string.IsNullOrWhiteSpace(UpdateProfileSelectedSaveGame) == false
         };
-        OpenProfileEditorCommand = new(OpenProfileEditor);
-        RenameProfileCommand = new(RenameProfile, OnAsyncException)
+        OpenProfileEditorCommand = new(OpenProfileEditor, OnException);
+        RenameProfileCommand = new(RenameProfile, OnException)
         {
             CanExecuteDelegate = () => string.IsNullOrWhiteSpace(RenameProfileName) == false
         };
-        ActivateProfileCommand = new(() => ActivateProfile(false), OnAsyncException);
-        ClearAndActivateProfileCommand = new(() => ActivateProfile(true), OnAsyncException);
-        PushUpdatesCommand = new(PushUpdates, OnAsyncException);
-        RemoveUnusedFromRemoteCommand = new(RemoveUnusedFromRemote, OnAsyncException);
+        ActivateProfileCommand = new(() => ActivateProfile(false), OnException);
+        ClearAndActivateProfileCommand = new(() => ActivateProfile(true), OnException);
+        PushUpdatesCommand = new(PushUpdates, OnException);
+        RemoveUnusedFromRemoteCommand = new(RemoveUnusedFromRemote, OnException);
+        ImportModsCommand = new(ImportMods, OnException);
+        RemoveUnusedLocalCommand = new(RemoveUnusedLocalMods, OnException);
+        ClearLocalSavegameCommand = new(ClearLocalSavegame, OnException)
+        {
+            CanExecuteDelegate = () => SelectedLocalSavegame is not null
+        };
+        OpenSettingsCommand = new(() => _settingsWindowInitializer.Open(), OnException);
+        RefreshSavegamesCommand = new(RefreshSavegames, OnException);
+        UploadNewSavegameCommand = new(UploadNewSavegame, OnException)
+        {
+            CanExecuteDelegate = () => SelectedLocalSavegame is not null && (string.IsNullOrWhiteSpace(NewSavegameSlotName) == false)
+        };
+        RemoveRemoteSavegameCommand = new(RemoveRemoteSavegame, OnException)
+        {
+            CanExecuteDelegate = () => SelectedRemoteSavegame is not null
+        };
+        UploadToExistingSavegameCommand = new(UploadToExistingSavegame, OnException)
+        {
+            CanExecuteDelegate = () => SelectedRemoteSavegame is not null && SelectedLocalSavegame is not null
+        };
+        DownloadSavegameCommand = new(DownloadSavegame, OnException)
+        {
+            CanExecuteDelegate = () => SelectedRemoteSavegame is not null && SelectedLocalSavegame is not null
+        };
+        OpenGameDataFolderCommand = new(() => Process.Start("explorer", _settings.GetValidGameDataFolder()), OnException);
+        OpenModsFolderCommand = new(() => Process.Start("explorer", _settings.GetValidModsFolder()), OnException);
+        OpenCacheFolderCommand = new(() => Process.Start("explorer", _settings.GetValidCacheFolder()), OnException);
 
 
         RefreshProfilesCommand.Execute(null);
+        RefreshSavegamesCommand.Execute(null);
         Savegames = InitializeSavegameList();
     }
 
@@ -103,6 +165,18 @@ internal class MainWindowViewModel : ViewModel
     public AsyncRelayCommand ClearAndActivateProfileCommand { get; }
     public AsyncRelayCommand PushUpdatesCommand { get; }
     public AsyncRelayCommand RemoveUnusedFromRemoteCommand { get; }
+    public RelayCommand ImportModsCommand { get; }
+    public AsyncRelayCommand RemoveUnusedLocalCommand { get; }
+    public RelayCommand ClearLocalSavegameCommand { get; }
+    public RelayCommand OpenSettingsCommand { get; }
+    public AsyncRelayCommand RefreshSavegamesCommand { get; }
+    public AsyncRelayCommand UploadNewSavegameCommand { get; }
+    public AsyncRelayCommand RemoveRemoteSavegameCommand { get; }
+    public AsyncRelayCommand UploadToExistingSavegameCommand { get; }
+    public AsyncRelayCommand DownloadSavegameCommand { get; }
+    public RelayCommand OpenGameDataFolderCommand { get; }
+    public RelayCommand OpenModsFolderCommand { get; }
+    public RelayCommand OpenCacheFolderCommand { get; }
 
 
     private ObservableCollection<string>? _profiles;
@@ -151,16 +225,16 @@ internal class MainWindowViewModel : ViewModel
     }
 
     public IEnumerable<string> Savegames { get; }
-    private string? _selectedSavegame;
-    public string? SelectedSavegame
+    private string? _updateProfileSelectedSavegame;
+    public string? UpdateProfileSelectedSaveGame
     {
         get
         {
-            return _selectedSavegame;
+            return _updateProfileSelectedSavegame;
         }
         set
         {
-            _selectedSavegame = value;
+            _updateProfileSelectedSavegame = value;
             OnPropertyChanged();
             UpdateProfileFromSavegameCommand.OnCanExecuteChanged();
         }
@@ -181,8 +255,74 @@ internal class MainWindowViewModel : ViewModel
         }
     }
 
+    private string? _selectedLocalSavegame;
+    public string? SelectedLocalSavegame
+    {
+        get
+        {
+            return _selectedLocalSavegame;
+        }
+        set
+        {
+            _selectedLocalSavegame = value;
+            OnPropertyChanged();
+            ClearLocalSavegameCommand.OnCanExecuteChanged();
+            UploadNewSavegameCommand.OnCanExecuteChanged();
+            UploadToExistingSavegameCommand.OnCanExecuteChanged();
+            DownloadSavegameCommand.OnCanExecuteChanged();
+        }
+    }
+
+    private ObservableCollection<string>? _remoteSavegames;
+    public ObservableCollection<string>? RemoteSavegames
+    {
+        get
+        {
+            return _remoteSavegames;
+        }
+        set
+        {
+            _remoteSavegames = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private string? _selectedRemoteSavegame;
+    public string? SelectedRemoteSavegame
+    {
+        get
+        {
+            return _selectedRemoteSavegame;
+        }
+        set
+        {
+            _selectedRemoteSavegame = value;
+            OnPropertyChanged();
+            RemoveRemoteSavegameCommand.OnCanExecuteChanged();
+            UploadToExistingSavegameCommand.OnCanExecuteChanged();
+            DownloadSavegameCommand.OnCanExecuteChanged();
+        }
+    }
+
+    private string? _newSavegameSlotName;
+    public string? NewSavegameSlotName
+    {
+        get
+        {
+            return _newSavegameSlotName;
+        }
+        set
+        {
+            _newSavegameSlotName = value;
+            OnPropertyChanged();
+            UploadNewSavegameCommand.OnCanExecuteChanged();
+        }
+    }
+
+
     public ProgressBarViewModel ApplyProfileProgressBarViewModel { get; set; } = new();
     public ProgressBarViewModel PushUpdatesProgressBarViewModel { get; set; } = new();
+    public ProgressBarViewModel RemoveUnusedLocalProgressBarViewModel { get; set; } = new();
 
 
     private async Task RefreshProfiles()
@@ -208,14 +348,16 @@ internal class MainWindowViewModel : ViewModel
         RefreshProfilesCommand.Execute(null);
     }
 
-    private Task UpdateProfileFromSavegame()
+    private async Task UpdateProfileFromSavegame()
     {
-        if (SelectedProfile is null || SelectedSavegame is null)
+        if (SelectedProfile is null || UpdateProfileSelectedSaveGame is null)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        return _remote.UpdateProfile(SelectedProfile, _savegameReader.GetFilenames(SelectedSavegame));
+        await _remote.UpdateProfile(SelectedProfile, _savegameManager.GetNeededMods(UpdateProfileSelectedSaveGame));
+
+        UpdateProfileSelectedSaveGame = null;
     }
 
     private void OpenProfileEditor()
@@ -248,44 +390,50 @@ internal class MainWindowViewModel : ViewModel
             return;
         }
 
-        _profileActivator.HashingStarted += (count) =>
+        ApplyProfileProgressBarViewModel.Bind(_profileActivator.FileOperation);
+
+        (DownloadJob job, IEnumerable<string> completelyMissing) = await _profileActivator.CreateJob(clearBeforeApplying, SelectedProfile);
+
+        ApplyProfileProgressBarViewModel.Reset();
+
+        if (completelyMissing.Any())
         {
-            ApplyProfileProgressBarViewModel.Maximum = count;
-        };
+            string list = string.Join("\n", completelyMissing.Take(20));
+            int count = completelyMissing.Count();
+            string listFooter = count > 20 ? $"\n...\n({count - 20} more)" : "";
 
-        _profileActivator.HashedFile += (size) =>
-        {
-            ApplyProfileProgressBarViewModel.Value += size;
-        };
-
-        (float downloadSize, IEnumerable<string> downloads) = await _profileActivator.ActivateFromLocal(SelectedProfile, clearBeforeApplying);
-
-        ApplyProfileProgressBarViewModel.Value = 0;
-
-        string downloadList;
-        int downloadCount = downloads.Count();
-
-        if (downloadCount > 20)
-        {
-            downloadList = string.Join("\n", downloads.Take(20)) + $"\n({downloadCount - 20} more)";
+            MessageBox.Show($"The following required mods could not be found:\n\n{list}{listFooter}", "Missing mods");
         }
-        else
+
+        if (job.MissingCount + job.UpdateCount == 0)
         {
-            downloadList = string.Join("\n", downloads);
+            if (completelyMissing.Any())
+            {
+                MessageBox.Show("No files to download.", "No files");
+            }
+            else
+            {
+                MessageBox.Show("No need to download any files.", "No download");
+            }
+
+            return;
         }
 
         bool download = MessageBox.Show(
-            $"Do you want to download the following mods ({downloadSize} MB)?\n\n{downloadList}",
-            "Download missing mods?",
-            MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No)
-                == MessageBoxResult.Yes;
+            $"Do you want to download\n{job.MissingCount} missing and\n{job.UpdateCount} outdated files?\n\n Total: {job.MissingCount + job.UpdateCount} mods, {job.TotalSize.ToBytesCount()}",
+            "Download",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question) == MessageBoxResult.Yes;
 
-        if (!download)
+        if (download == false)
         {
             return;
         }
 
-        // Open download window and start downloading
+        ApplyProfileProgressBarViewModel.Bind(_profileActivator.FileOperation);
+
+        await _profileActivator.PerformJob(job);
+
+        ApplyProfileProgressBarViewModel.Reset();
     }
 
     private async Task PushUpdates()
@@ -309,18 +457,18 @@ internal class MainWindowViewModel : ViewModel
         {
             if (completelyMissing.Any())
             {
-                MessageBox.Show("No files to upload.", "No files", MessageBoxButton.OK);
+                MessageBox.Show("No files to upload.", "No files");
             }
             else
             {
-                MessageBox.Show("Remote is up to date.", "Up to date", MessageBoxButton.OK);
+                MessageBox.Show("Remote is up to date.", "Up to date");
             }
 
             return;
         }
 
         bool upload = MessageBox.Show(
-            $"Do you want to upload\n{update.Missing.Count()} missing and\n{update.Updates.Count()} outdated files?\n\n Total: {update.TotalCount} mods, {update.TotalSize.ToBytesCount()}",
+            $"Do you want to upload\n{update.Missing.Count()} missing and\n{update.Updates.Count()} updated files?\n\n Total: {update.TotalCount} mods, {update.TotalSize.ToBytesCount()}",
             "Upload",
             MessageBoxButton.YesNoCancel, MessageBoxImage.Question) == MessageBoxResult.Yes;
 
@@ -342,7 +490,7 @@ internal class MainWindowViewModel : ViewModel
 
         if (unused.Any() == false)
         {
-            MessageBox.Show("No unused mods on remote.", "No unused mods.", MessageBoxButton.OK);
+            MessageBox.Show("No unused mods found on remote.", "Nothing to remove.", MessageBoxButton.OK);
             return;
         }
 
@@ -361,6 +509,199 @@ internal class MainWindowViewModel : ViewModel
         {
             await _remote.RemoveMod(mod);
         }
+    }
+
+    private void ImportMods()
+    {
+        try
+        {
+            OpenFileDialog dialog = new();
+
+            dialog.AddExtension = true;
+            dialog.DefaultExt = "zip";
+            dialog.InitialDirectory = _modBrowser.DefaultImportPath;
+            dialog.Multiselect = true;
+
+            if (dialog.ShowDialog() ?? false)
+            {
+                foreach (string fullName in dialog.FileNames)
+                {
+                    _modBrowser.Import(fullName);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Exception", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task RemoveUnusedLocalMods()
+    {
+        IEnumerable<NeededMod> needed = (await _remote.FetchNeededModsList()).Needed;
+        IEnumerable<FileInfo> existing = _modBrowser.GetActive().Concat(_modBrowser.GetCached());
+
+        IEnumerable<FileInfo> toDelete = existing.Where(file => needed.Any(mod => mod.Name == file.Name) == false);
+
+        if (toDelete.Any() == false)
+        {
+            MessageBox.Show("No unused mods found locally.", "Nothing to remove", MessageBoxButton.OK);
+            return;
+        }
+
+        string list = string.Join("\n", toDelete.Take(20).Select(file => file.Name));
+        int count = toDelete.Count();
+        string listFooter = count > 20 ? $"\n...\n({count} more)" : "";
+
+        bool delete = MessageBox.Show(
+            $"Do you want to move the following files to the trash?\n\n{list}{listFooter}", "Remove files?",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+        if (!delete)
+        {
+            return;
+        }
+
+        RemoveUnusedLocalProgressBarViewModel.Bind(_modBrowser.FileOperation);
+
+        await _modBrowser.Recycle(toDelete);
+
+        RemoveUnusedLocalProgressBarViewModel.Reset();
+    }
+
+    private void ClearLocalSavegame()
+    {
+        if (SelectedLocalSavegame is null)
+        {
+            return;
+        }
+
+        bool proceed = MessageBox.Show(
+            $"Are you sure you want to move all files in {SelectedLocalSavegame} to the trash?", "Clear local savegame",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question)
+            == MessageBoxResult.Yes;
+
+        if (proceed == false)
+        {
+            return;
+        }
+
+        _savegameManager.Clear(SelectedLocalSavegame);
+    }
+
+    private async Task UploadNewSavegame()
+    {
+        if (SelectedLocalSavegame is null || string.IsNullOrWhiteSpace(NewSavegameSlotName) || RemoteSavegames is null)
+        {
+            return;
+        }
+
+        if (RemoteSavegames.Contains(NewSavegameSlotName))
+        {
+            throw new Exception("Name already taken");
+        }
+
+        Stream stream = await _savegameManager.PackageAsync(SelectedLocalSavegame);
+        await _remote.UploadSavegame(stream, NewSavegameSlotName);
+        stream.Dispose();
+
+        await RefreshSavegamesCommand.ExecuteAsync();
+
+        NewSavegameSlotName = null;
+    }
+    
+    private async Task UploadToExistingSavegame()
+    {
+        if (SelectedLocalSavegame is null || SelectedRemoteSavegame is null)
+        {
+            return;
+        }
+
+        bool proceed = MessageBox.Show(
+            $"Are you sure you want to OVERWRITE {SelectedRemoteSavegame}?", "Overwrite remote savegame",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question)
+            == MessageBoxResult.Yes;
+
+        if (proceed == false)
+        {
+            return;
+        }
+
+        SavegameInfo savegameInfo = await _remote.FetchSavegameInfo(SelectedRemoteSavegame);
+        if (savegameInfo.CheckedOut is not null)
+        {
+            DateTime time = DateTimeOffset.FromUnixTimeSeconds(savegameInfo.CheckedOut.Timestamp).LocalDateTime;
+
+            proceed = MessageBox.Show(
+                $"Savegame {SelectedRemoteSavegame} was last checked out\n\nby: {savegameInfo.CheckedOut.Username}\nat: {time}.\n\n Do you want to proceed?",
+                "Download checked out savegame", MessageBoxButton.YesNoCancel, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+            if (proceed == false)
+            {
+                return;
+            }
+        }
+
+        Stream stream = await _savegameManager.PackageAsync(SelectedLocalSavegame);
+        await _remote.UploadSavegame(stream, SelectedRemoteSavegame);
+        stream.Dispose();
+    }
+
+    private async Task DownloadSavegame()
+    {
+        if (SelectedLocalSavegame is null || SelectedRemoteSavegame is null)
+        {
+            return;
+        }
+
+        ClearLocalSavegameCommand.Execute(null);
+
+        SavegameInfo savegameInfo = await _remote.FetchSavegameInfo(SelectedRemoteSavegame);
+        if (savegameInfo.CheckedOut is not null && savegameInfo.CheckedOut.Username != _settings.RemoteUsername)
+        {
+            DateTime time = DateTimeOffset.FromUnixTimeSeconds(savegameInfo.CheckedOut.Timestamp).LocalDateTime;
+
+            bool proceed = MessageBox.Show(
+                $"Savegame {SelectedRemoteSavegame} was last checked out\n\nby: {savegameInfo.CheckedOut.Username}\nat: {time}.\n\n Do you want to proceed?",
+                "Download checked out savegame", MessageBoxButton.YesNoCancel, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+            if (proceed == false)
+            {
+                return;
+            }
+        }
+
+        await _remote.CheckoutSavegame(SelectedRemoteSavegame);
+
+        Stream stream = await _remote.DownloadSavegame(SelectedRemoteSavegame);
+        await _savegameManager.UnpackAsync(stream, SelectedLocalSavegame);
+    }
+
+    private async Task RemoveRemoteSavegame()
+    {
+        if (SelectedRemoteSavegame is null)
+        {
+            return;
+        }
+
+        bool proceed = MessageBox.Show(
+            $"Are you sure you want to PERMANENTLY delete {SelectedRemoteSavegame}?", "Clear remote savegame",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question)
+            == MessageBoxResult.Yes;
+
+        if (proceed == false)
+        {
+            return;
+        }
+
+        await _remote.RemoveSavegame(SelectedRemoteSavegame);
+
+        await RefreshSavegamesCommand.ExecuteAsync();
+    }
+
+    private async Task RefreshSavegames()
+    {
+        RemoteSavegames = new(await _remote.FetchSavegames());
     }
 
 

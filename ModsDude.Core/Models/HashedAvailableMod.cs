@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ModsDude.Core.Models.UpdatePusher;
+namespace ModsDude.Core.Models;
 
 public class HashedAvailableMod
 {
