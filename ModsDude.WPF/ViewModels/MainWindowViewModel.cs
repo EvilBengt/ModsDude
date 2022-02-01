@@ -628,13 +628,13 @@ internal class MainWindowViewModel : ViewModel
         }
 
         SavegameInfo savegameInfo = await _remote.FetchSavegameInfo(SelectedRemoteSavegame);
-        if (savegameInfo.CheckedOut is not null)
+        if (savegameInfo.CheckedOut is not null && savegameInfo.CheckedOut.Username != _settings.RemoteUsername)
         {
             DateTime time = DateTimeOffset.FromUnixTimeSeconds(savegameInfo.CheckedOut.Timestamp).LocalDateTime;
 
             proceed = MessageBox.Show(
                 $"Savegame {SelectedRemoteSavegame} was last checked out\n\nby: {savegameInfo.CheckedOut.Username}\nat: {time}.\n\n Do you want to proceed?",
-                "Download checked out savegame", MessageBoxButton.YesNoCancel, MessageBoxImage.Question) == MessageBoxResult.Yes;
+                "Download checked out savegame", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning) == MessageBoxResult.Yes;
 
             if (proceed == false)
             {
