@@ -16,6 +16,7 @@ internal class SettingsWindowViewModel : ViewModel
 {
     private readonly ApplicationSettings _model;
     private readonly SettingsManager _settingsManager;
+    private readonly Action _applyCallback;
 
     /// <summary>
     /// Design-time only constructor!
@@ -24,6 +25,7 @@ internal class SettingsWindowViewModel : ViewModel
     {
         _model = null!;
         _settingsManager = null!;
+        _applyCallback = null!;
 
         BrowseGameDataCommand = null!;
         BrowseModsCommand = null!;
@@ -34,11 +36,11 @@ internal class SettingsWindowViewModel : ViewModel
     /// <summary>
     /// Main constructor
     /// </summary>
-    public SettingsWindowViewModel(ApplicationSettings applicationSettings, SettingsManager settingsManager)
+    public SettingsWindowViewModel(ApplicationSettings applicationSettings, SettingsManager settingsManager, Action applyCallback)
     {
         _model = applicationSettings;
         _settingsManager = settingsManager;
-
+        _applyCallback = applyCallback;
         BrowseGameDataCommand = new(() => Browse("Select Game data folder", (path) => GameDataFolderPath = path), OnException);
         BrowseModsCommand = new(() => Browse("Select Mods folder", (path) => ModsFolderPath = path), OnException);
         BrowseCacheCommand = new(() => Browse("Select Mods Cache folder", (path) => CacheFolderPath = path), OnException);
@@ -169,5 +171,7 @@ internal class SettingsWindowViewModel : ViewModel
         _model.RemotePassword = RemotePassword;
 
         _settingsManager.WriteSettings(_model);
+
+        _applyCallback();
     }
 }

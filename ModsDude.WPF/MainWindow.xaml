@@ -218,7 +218,7 @@
                     <StackPanel Orientation="Vertical">
                         <TextBox Text="{Binding NewSavegameSlotName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <Button Command="{Binding UploadNewSavegameCommand}">
-                            Upload
+                            Check-in
                         </Button>
                     </StackPanel>
                 </GroupBox>

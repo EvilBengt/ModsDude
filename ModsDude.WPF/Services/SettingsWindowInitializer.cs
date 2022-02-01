@@ -23,9 +23,9 @@ internal class SettingsWindowInitializer
     }
 
 
-    public void Open()
+    public void Open(Action applyCallback)
     {
-        SettingsWindowViewModel viewModel = new(_settings, _settingsManager);
+        SettingsWindowViewModel viewModel = new(_settings, _settingsManager, applyCallback);
         SettingsWindow window = new()
         {
             DataContext = viewModel,

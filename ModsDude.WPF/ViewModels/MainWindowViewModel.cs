@@ -18,6 +18,7 @@ using ModsDude.Core.Models;
 using ModsDude.Core.Models.ProfileActivator;
 using ModsDude.Core.Models.Settings;
 using System.Diagnostics;
+using Microsoft.VisualBasic.FileIO;
 
 namespace ModsDude.WPF.ViewModels;
 
@@ -126,7 +127,6 @@ internal class MainWindowViewModel : ViewModel
         {
             CanExecuteDelegate = () => SelectedLocalSavegame is not null
         };
-        OpenSettingsCommand = new(() => _settingsWindowInitializer.Open(), OnException);
         RefreshSavegamesCommand = new(RefreshSavegames, OnException);
         UploadNewSavegameCommand = new(UploadNewSavegame, OnException)
         {
@@ -144,10 +144,15 @@ internal class MainWindowViewModel : ViewModel
         {
             CanExecuteDelegate = () => SelectedRemoteSavegame is not null && SelectedLocalSavegame is not null
         };
+        OpenSettingsCommand = new(() => _settingsWindowInitializer.Open(() =>
+        {
+            RefreshProfilesCommand.Execute(null);
+            RefreshSavegamesCommand.Execute(null);
+        }), OnException);
         OpenGameDataFolderCommand = new(() => Process.Start("explorer", _settings.GetValidGameDataFolder()), OnException);
         OpenModsFolderCommand = new(() => Process.Start("explorer", _settings.GetValidModsFolder()), OnException);
         OpenCacheFolderCommand = new(() => Process.Start("explorer", _settings.GetValidCacheFolder()), OnException);
-
+        
 
         RefreshProfilesCommand.Execute(null);
         RefreshSavegamesCommand.Execute(null);
@@ -605,6 +610,8 @@ internal class MainWindowViewModel : ViewModel
         await _remote.UploadSavegame(stream, NewSavegameSlotName);
         stream.Dispose();
 
+        _savegameManager.Clear(SelectedLocalSavegame);
+
         await RefreshSavegamesCommand.ExecuteAsync();
 
         NewSavegameSlotName = null;
@@ -645,6 +652,8 @@ internal class MainWindowViewModel : ViewModel
         Stream stream = await _savegameManager.PackageAsync(SelectedLocalSavegame);
         await _remote.UploadSavegame(stream, SelectedRemoteSavegame);
         stream.Dispose();
+
+        _savegameManager.Clear(SelectedLocalSavegame);
     }
 
     private async Task DownloadSavegame()
