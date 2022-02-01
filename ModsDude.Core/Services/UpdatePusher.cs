@@ -57,14 +57,16 @@ public class UpdatePusher
 
         FileOperation.OnStart(update.TotalSize);
 
+        _remote.FileOperation.Increment += UpdateFileOperation;
+
         foreach (HashedAvailableMod mod in update.Updates.Concat(hashedMissing))
         {
             using FileStream stream = File.OpenRead(mod.Mod.File.FullName);
 
             await _remote.UploadMod(stream, await _modBrowser.Hash(mod.Mod.File.FullName));
-
-            FileOperation.OnIncrement(mod.Mod.File.Length);
         }
+
+        _remote.FileOperation.Increment -= UpdateFileOperation;
     }
 
 
@@ -106,5 +108,10 @@ public class UpdatePusher
 
             return new AvailableMod(file, mod);
         }).OfType<AvailableMod>();
+    }
+    
+    private void UpdateFileOperation(long bytes)
+    {
+        FileOperation.OnIncrement(bytes);
     }
 }

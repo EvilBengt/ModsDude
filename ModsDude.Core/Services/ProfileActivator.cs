@@ -82,13 +82,9 @@ public class ProfileActivator
 
         foreach (NeededMod mod in job.Missing.Concat(job.Outdated))
         {
-            long size = mod.FileInfo!.Size;
-
             Stream stream = await _remote.DownloadMod(mod.Name);
-            await _modBrowser.SaveStreamAsActiveAsync(stream, mod.Name);
-            stream.Dispose();
 
-            FileOperation.OnIncrement(size);
+            await _modBrowser.SaveStreamAsActiveAsync(stream, mod.Name);
         }
     }
 

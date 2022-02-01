@@ -156,20 +156,56 @@ public class ModBrowser
         });
     }
 
-    public Task SaveStreamAsActiveAsync(Stream stream, string filename)
+    public async Task SaveStreamAsActiveAsync(Stream stream, string filename)
     {
-        return Task.Run(() =>
-        {
-            FileStream fileStream = File.Open(Path.Combine(_settings.GetValidModsFolder(), filename), FileMode.Create);
+        FileStream fileStream = File.Open(Path.Combine(_settings.GetValidModsFolder(), filename), FileMode.Create);
 
-            stream.CopyTo(fileStream);
+        await CopyStreamWithProgress(stream, fileStream);
 
-            stream.Dispose();
-        });
+        stream.Dispose();
+        fileStream.Dispose();
     }
 
 
-    private IEnumerable<FileInfo> GetFiles(string path)
+    /// <summary>
+    /// Adapted from https://stackoverflow.com/a/69826649/5696900
+    /// </summary>
+    private async Task CopyStreamWithProgress(Stream from, Stream to)
+    {
+        long totalBytesRead = 0;
+        long readCount = 0;
+        byte[] buffer = new byte[8192];
+        bool isMoreToRead = true;
+        long bytesReadSinceLastReport = 0;
+
+        do
+        {
+            int bytesRead = await from.ReadAsync(buffer);
+            if (bytesRead == 0)
+            {
+                isMoreToRead = false;
+
+                FileOperation.OnIncrement(bytesRead);
+
+                continue;
+            }
+
+            await to.WriteAsync(buffer.AsMemory(0, bytesRead));
+
+            totalBytesRead += bytesRead;
+            bytesReadSinceLastReport += bytesRead;
+            readCount++;
+
+            if (readCount % 10 == 0)
+            {
+                FileOperation.OnIncrement(bytesReadSinceLastReport);
+                bytesReadSinceLastReport = 0;
+            }
+        }
+        while (isMoreToRead);
+    }
+
+    private static IEnumerable<FileInfo> GetFiles(string path)
     {
         return Directory.EnumerateFiles(path).Select(fullName => new FileInfo(fullName));
     }

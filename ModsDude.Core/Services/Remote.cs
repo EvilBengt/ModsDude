@@ -1,4 +1,5 @@
-﻿using ModsDude.Core.Models.Remote;
+﻿using ModsDude.Core.Models;
+using ModsDude.Core.Models.Remote;
 using ModsDude.Core.Models.Settings;
 using System;
 using System.Collections.Generic;
@@ -20,6 +21,9 @@ public class Remote
     {
         _settings = settings;
     }
+
+
+    public FileOperation FileOperation { get; set; } = new();
 
 
     // Profiles
@@ -168,25 +172,49 @@ public class Remote
         return responseContent;
     }
 
-    public async Task UploadMod(FileStream fileStream, string? hash)
+    public async Task UploadMod(FileStream stream, string hash)
     {
-        HttpRequestMessage request = CreatePost("/mods/upload.php");
+        long totalSize = stream.Length;
+        int bufferSize = 50 * 1024 * 1024;
+        byte[] buffer = new byte[bufferSize];
+        int totalReadBytes = 0;
 
-        MultipartFormDataContent content = new();
+        bool isLastChunk = false;
 
-        content.Add(new StreamContent(fileStream), "file", Path.GetFileName(fileStream.Name));
+        FileOperation.OnStart(totalSize);
 
-        if (hash is not null)
+        while (!isLastChunk)
         {
-            content.Add(new StringContent(hash), "hash");
-        
-        }
-        content.Add(new StringContent(fileStream.Length.ToString()), "size");
-        request.Content = content;
+            bool isFirstChunk = totalReadBytes == 0;
+            int readBytes = stream.Read(buffer, 0, bufferSize);
 
-        using HttpClient client = new();
-        HttpResponseMessage response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+            HttpRequestMessage request = CreatePost("/mods/uploadchunk.php");
+
+            MultipartFormDataContent content = new();
+            content.Add(new ByteArrayContent(buffer, 0, readBytes), "file", Path.GetFileName(stream.Name));
+
+            if (totalReadBytes + bufferSize >= totalSize)
+            {
+                content.Add(new StringContent(""), "isLastChunk");
+                content.Add(new StringContent(totalSize.ToString()), "size");
+                content.Add(new StringContent(hash), "hash");
+
+                isLastChunk = true;
+            }
+            else if (isFirstChunk)
+            {
+                content.Add(new StringContent(""), "isFirstChunk");
+            }
+
+            request.Content = content;
+
+            using HttpClient client = new();
+            HttpResponseMessage response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            totalReadBytes += readBytes;
+            FileOperation.OnIncrement(readBytes);
+        }
     }
 
     public async Task RemoveMod(string name)
@@ -209,7 +237,7 @@ public class Remote
         HttpRequestMessage request = CreateGet("/mods/mod/" + name);
 
         using HttpClient client = new();
-        HttpResponseMessage response = await client.SendAsync(request);
+        HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
         response.EnsureSuccessStatusCode();
 
@@ -310,7 +338,6 @@ public class Remote
 
         response.EnsureSuccessStatusCode();
     }
-
 
     private HttpRequestMessage CreateGet(string endpoint)
     {
