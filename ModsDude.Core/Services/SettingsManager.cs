@@ -14,36 +14,21 @@ public class SettingsManager
     private const string _settingsFileName = "settings.json";
 
     private readonly string _myAppDataPath;
+    private readonly string _settingsFilePath;
 
 
     public SettingsManager(string myAppDataPath)
     {
         _myAppDataPath = myAppDataPath;
+        _settingsFilePath = Path.Combine(_myAppDataPath, _settingsFileName);
     }
 
-
-    public string GetOrCreateSettingsFilePath()
-    {
-        if (Directory.Exists(_myAppDataPath) == false)
-        {
-            Directory.CreateDirectory(_myAppDataPath);
-        }
-
-        string filePath = Path.Combine(_myAppDataPath, _settingsFileName);
-
-        if (File.Exists(filePath) == false)
-        {
-            WriteSettings(new());
-        }
-
-        return filePath;
-    }
 
     public ApplicationSettings LoadSettings()
     {
-        string filePath = GetOrCreateSettingsFilePath();
+        CreateSettingsFileIfNotExists();
 
-        string jsonString = File.ReadAllText(filePath);
+        string jsonString = File.ReadAllText(_settingsFilePath);
 
         try
         {
@@ -62,6 +47,19 @@ public class SettingsManager
             WriteIndented = true
         });
 
-        File.WriteAllText(GetOrCreateSettingsFilePath(), json);
+        File.WriteAllText(_settingsFilePath, json);
+    }
+
+    private void CreateSettingsFileIfNotExists()
+    {
+        if (Directory.Exists(_myAppDataPath) == false)
+        {
+            Directory.CreateDirectory(_myAppDataPath);
+        }
+
+        if (File.Exists(_settingsFilePath) == false)
+        {
+            WriteSettings(new());
+        }
     }
 }

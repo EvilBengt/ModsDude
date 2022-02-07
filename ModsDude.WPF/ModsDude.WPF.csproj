@@ -9,11 +9,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="tractorIcon.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="FuzzySharp" Version="2.0.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ModsDude.Core\ModsDude.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="tractorIcon.png" />
   </ItemGroup>
 
 </Project>

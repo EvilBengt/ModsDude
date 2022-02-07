@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ModsDude.Core", "ModsDude.C
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ModsDude.WPF", "ModsDude.WPF\ModsDude.WPF.csproj", "{1F4BF9C1-9575-4F96-A7E4-6DA9141D118B}"
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "ModsDudeSetup", "ModsDudeSetup\ModsDudeSetup.vdproj", "{C8BF940D-EAD2-4277-B67F-CB99AC401716}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,8 @@ Global
 		{1F4BF9C1-9575-4F96-A7E4-6DA9141D118B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1F4BF9C1-9575-4F96-A7E4-6DA9141D118B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1F4BF9C1-9575-4F96-A7E4-6DA9141D118B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8BF940D-EAD2-4277-B67F-CB99AC401716}.Debug|Any CPU.ActiveCfg = Debug
+		{C8BF940D-EAD2-4277-B67F-CB99AC401716}.Release|Any CPU.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
