@@ -20,4 +20,8 @@
     <ProjectReference Include="..\ModsDude.Core\ModsDude.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="tractorIcon.png" />
+  </ItemGroup>
+
 </Project>
