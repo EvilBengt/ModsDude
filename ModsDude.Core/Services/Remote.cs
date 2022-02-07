@@ -175,7 +175,7 @@ public class Remote
     public async Task UploadMod(FileStream stream, string hash)
     {
         long totalSize = stream.Length;
-        int bufferSize = 10 * 1024 * 1024;
+        int bufferSize = 5 * 1024 * 1024;
         byte[] buffer = new byte[bufferSize];
         int totalReadBytes = 0;
 
