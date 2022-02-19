@@ -7,7 +7,7 @@
         xmlns:vm="clr-namespace:ModsDude.WPF.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:SettingsWindowViewModel, IsDesignTimeCreatable=True}"
-        Title="ModsDude v1.2 - Settings" Height="564" Width="601"
+        Title="ModsDude v1.2.1 - Settings" Height="564" Width="601"
         FontSize="16">
     <Grid>
         <Grid.ColumnDefinitions>
