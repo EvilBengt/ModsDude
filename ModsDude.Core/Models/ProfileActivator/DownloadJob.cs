@@ -14,7 +14,7 @@ public class DownloadJob
         Outdated = outdated;
         Missing = missing;
 
-        TotalSize = outdated.Sum(mod => mod.FileInfo.Size) + missing.Sum(mod => mod.FileInfo.Size);
+        TotalSize = outdated.Sum(mod => (long)mod.FileInfo.Size) + missing.Sum(mod => (long)mod.FileInfo.Size);
         MissingCount = missing.Count();
         UpdateCount = outdated.Count();
     }
